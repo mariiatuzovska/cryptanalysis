@@ -7,6 +7,8 @@ github.com/mariiatuzovska/ciphers v0.0.0-20200130161341-e15f1029b98b h1:0HvelL5K
 github.com/mariiatuzovska/ciphers v0.0.0-20200130161341-e15f1029b98b/go.mod h1:eO/KXC2P4bzSMkrgoEK8uSymEEFHL2AgxEHRQZv6Bx0=
 github.com/mariiatuzovska/ciphers v0.0.0-20200130161701-29ab1c9eac4c h1:suwqnm3I2zfkKSyWOV+Peo0lWKND2nx8HO4LqKygkCc=
 github.com/mariiatuzovska/ciphers v0.0.0-20200130161701-29ab1c9eac4c/go.mod h1:eO/KXC2P4bzSMkrgoEK8uSymEEFHL2AgxEHRQZv6Bx0=
+github.com/mariiatuzovska/ciphers v0.0.0-20200202133931-bc77214e179d h1:QWzsvnlBeF5ZVg8JksW8CFpkNmgo9Q8k8pbiot4SZmM=
+github.com/mariiatuzovska/ciphers v0.0.0-20200202133931-bc77214e179d/go.mod h1:eO/KXC2P4bzSMkrgoEK8uSymEEFHL2AgxEHRQZv6Bx0=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/russross/blackfriday/v2 v2.0.1 h1:lPqVAte+HuHNfhJ/0LC98ESWRz8afy9tM/0RK8m9o+Q=
 github.com/russross/blackfriday/v2 v2.0.1/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=

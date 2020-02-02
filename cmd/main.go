@@ -24,15 +24,24 @@ func main() {
 	app.Authors = []cli.Author{cli.Author{Name: "Tuzovska Mariia"}}
 	app.Commands = []cli.Command{
 		{
-			Name:    "keygen",
-			Aliases: []string{"k", "key", "kgen"},
+			Name:    "key",
+			Aliases: []string{"k", "keygen", "kgen"},
 			Usage:   "Generate key file for Heys cipher",
 			Action:  keygen,
 			Flags: []cli.Flag{
 				&cli.StringFlag{
-					Name:  "file",
-					Usage: "path to message file",
+					Name:  "key",
+					Usage: "path to key file",
 					Value: "community/key.txt",
+				},
+				&cli.StringFlag{
+					Name:  "gen",
+					Usage: "set true(t), if wants to generate new",
+					Value: "f",
+				},
+				&cli.StringFlag{
+					Name:  "show",
+					Usage: "prints key in formats: bin, hex, octets",
 				},
 			},
 		},
@@ -134,9 +143,28 @@ func main() {
 }
 
 func keygen(c *cli.Context) error {
-	h := heys.New(c.String("file"))
-	key := h.GenereKey()
-	log.Printf("key bytes %x has been created and written to %s", key, h.KeyFile)
+
+	var key []byte
+	if c.String("gen") != "f" {
+		h := heys.New(c.String("key"))
+		key = h.GenereKey()
+		log.Printf("key bytes %x has been created and written to %s", key, h.KeyFile)
+	} else {
+		var err error
+		key, err = util.GetBytesFromFile(c.String("key"))
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	if c.String("show") == "hex" {
+		fmt.Printf("Hex value of key is %x\n", key)
+	}
+	if c.String("show") == "bin" {
+		fmt.Printf("Binary value of key is %b\n", key)
+	}
+	if c.String("show") == "octet" {
+		fmt.Println("Bytes of key", key)
+	}
 	return nil
 }
 
