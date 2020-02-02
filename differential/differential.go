@@ -33,14 +33,14 @@ func (in *Input) DifferentialSearch() *[]Branch {
 
 	for in.Round = 1; in.Round < in.TotalRounds; in.Round++ { // starting counter
 		gamma[in.Round] = make(Branch)
-		sBox, err := in.DifferentialProbabilitySBox()
+		sBox, err := in.DifferentialProbabilitySBox() // exactly for each round of encryption
 		if err != nil {
 			log.Fatal(err)
 		}
 		for a, aProbability := range gamma[in.Round-1] {
 			for b, bProbability := range sBox[a] {
 				_, exist := gamma[in.Round][uint16(b)]
-				if exist == false {
+				if !exist {
 					gamma[in.Round][uint16(b)] = aProbability * (float32(bProbability) / 16)
 				} else {
 					gamma[in.Round][uint16(b)] = aProbability*(float32(bProbability)/16) + gamma[in.Round][uint16(b)]

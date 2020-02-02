@@ -1,9 +1,11 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/mariiatuzovska/ciphers/heys"
 	"github.com/mariiatuzovska/ciphers/util"
@@ -92,7 +94,7 @@ func main() {
 			Name:    "differential",
 			Aliases: []string{"diff", "dif"},
 			Usage:   "Differential search",
-			Action:  decrypt,
+			Action:  differentialSearch,
 			Flags: []cli.Flag{
 				&cli.StringFlag{
 					Name:  "message",
@@ -117,7 +119,7 @@ func main() {
 				&cli.StringFlag{
 					Name:  "quantile",
 					Usage: "input quantiles separated by coma ','",
-					Value: "0.3,0.3,0.3,0.3,0.3",
+					Value: "0.1,0.05,0.01,0.005,0.002",
 				},
 				&cli.StringFlag{
 					Name:  "round",
@@ -199,7 +201,8 @@ func differentialSearch(c *cli.Context) error {
 	arr := strings.Split(c.String("quantile"), ",")
 	quantile := make([]float32, len(arr))
 	for i, v := range arr {
-		quantile[i], err = strconv.ParseFloat(v, 32)
+		x, err := strconv.ParseFloat(v, 32)
+		quantile[i] = float32(x)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -209,7 +212,7 @@ func differentialSearch(c *cli.Context) error {
 		log.Fatal(err)
 	}
 	h := heys.New(c.String("key"))
-	d := differential.New(h, alpha, quantile, round)
+	d := differential.New(h, uint16(alpha), quantile, round)
 	fmt.Println(d.DifferentialSearch())
 
 	return nil
