@@ -1,0 +1,53 @@
+package heys
+
+// Block of heys cipher
+type Block uint16
+
+var (
+	sBlock = map[uint16]uint16{
+		0x0: 0xf, 0x1: 0x8, 0x2: 0xe, 0x3: 0x9, 0x4: 0x7, 0x5: 0x2, 0x6: 0x0, 0x7: 0xd,
+		0x8: 0xc, 0x9: 0x6, 0xa: 0x1, 0xb: 0x5, 0xc: 0xb, 0xd: 0x4, 0xe: 0x3, 0xf: 0xa,
+	}
+	iBlock = map[uint16]uint16{
+		0x0: 0x6, 0x1: 0xa, 0x2: 0x5, 0x3: 0xe, 0x4: 0xd, 0x5: 0xb, 0x6: 0x9, 0x7: 0x4,
+		0x8: 0x1, 0x9: 0x3, 0xa: 0xf, 0xb: 0xc, 0xc: 0x8, 0xd: 0x7, 0xe: 0x2, 0xf: 0x0}
+)
+
+// NewBlock returns uint16 as Block type
+func NewBlock(b uint16) *Block {
+	block := Block(b)
+	return &block
+}
+
+func (block *Block) Permuntate() {
+	b := block.Uint16()
+	b = sBlock[b&0x000f] + (sBlock[(uint16(*block)&0x00f0)>>4] << 4) +
+		(sBlock[(uint16(*block)&0x0f00)>>8] << 8) + (sBlock[(uint16(*block)&0xf000)>>12] << 12)
+	*block = Block(b)
+}
+
+func (block *Block) Unpermuntate() {
+	b := block.Uint16()
+	b = iBlock[b&0x000f] + (iBlock[(uint16(*block)&0x00f0)>>4] << 4) +
+		(iBlock[(uint16(*block)&0x0f00)>>8] << 8) + (iBlock[(uint16(*block)&0xf000)>>12] << 12)
+	*block = Block(b)
+}
+
+func (block *Block) Xor(k uint16) {
+	*block = Block(uint16(*block) ^ k)
+}
+
+func (block *Block) Uint16() uint16 {
+	return uint16(*block)
+}
+
+// func (block *Block) SetBytes(bytes []byte) {
+// 	*block = Block(uint16(bytes[0]) + (uint16(bytes[1]) << 8))
+// }
+
+// func (block *Block) GetBytes() []byte {
+// 	return []byte{
+// 		byte(uint16(*block) & 0xff),
+// 		byte((uint16(*block) >> 8) & 0xff),
+// 	}
+// }
