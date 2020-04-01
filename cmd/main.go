@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -11,78 +12,75 @@ import (
 	"github.com/urfave/cli"
 )
 
-var cliMapFlag map[string]cli.Flag = map[string]cli.Flag{
-	"key": cli.StringFlag{
-		Name:  "key",
-		Usage: "path to key file",
-		Value: "community/key.txt",
-	},
-	"gen": cli.StringFlag{
-		Name:  "gen",
-		Usage: "set true(t), if wants to generate new",
-		Value: "f",
-	},
-	"show": cli.StringFlag{
-		Name:  "show",
-		Usage: "prints key in formats: bin, hex, octets",
-	},
-	"message": cli.StringFlag{
-		Name:  "message",
-		Usage: "path to message file",
-		Value: "community/message.txt",
-	},
-	"cipher": cli.StringFlag{
-		Name:  "cipher",
-		Usage: "path to cipher file",
-		Value: "community/cipher.txt",
-	},
-	"text": cli.StringFlag{
-		Name:  "text",
-		Usage: "change message file content",
-	},
-	"list": cli.StringFlag{
-		Name:  "list",
-		Usage: "path to list file",
-		Value: "community/list.json",
-	},
-}
+var key = []uint16{0x391a, 0xd01e, 0x1cc9, 0x467f, 0x0553, 0xc131, 0x8f42}
+
+var (
+	alpha uint16 = 0x7
+	beta  uint16 = 0xfffc
+)
 
 func main() {
 
-	var key = []uint16{0x391a, 0xd01e, 0x1cc9, 0x467f, 0x0553, 0xc131, 0x8f42}
-
-	d := differential.NewDifferential(heys.NewHeys(&key))
-	m := d.Search()
-
-	arr, err := json.MarshalIndent(m, "", "	")
-	if err != nil {
-		log.Fatal(err)
+	app := cli.NewApp()
+	app.Name = "cryptanalysis"
+	app.Usage = "cryptanalysis pkg for Heys cipher command line client"
+	app.Description = "linear & differential cryptanalysis for Heys cipher"
+	app.Version = "0.0.1"
+	app.Copyright = "2020, mariiatuzovska"
+	app.Authors = []cli.Author{cli.Author{Name: "Tuzovska Mariia"}}
+	app.Commands = []cli.Command{
+		{
+			Name: "difference-new",
+			Action: func(c *cli.Context) error {
+				d := differential.NewDifferential(heys.NewHeys(&key))
+				m := d.Search()
+				arr, err := json.MarshalIndent(*m, "", "	")
+				if err != nil {
+					log.Fatal(err)
+				}
+				return ioutil.WriteFile("community/differences.json", arr, os.ModePerm)
+			},
+		},
+		{
+			Name: "difference-show",
+			Action: func(c *cli.Context) error {
+				dPTable := make(differential.DPTable)
+				file, err := ioutil.ReadFile("community/differences.json")
+				if err != nil {
+					return err
+				}
+				err = json.Unmarshal(file, &dPTable)
+				if err != nil {
+					return err
+				}
+				for alpha, barnch := range dPTable {
+					for beta, prob := range barnch {
+						fmt.Println(fmt.Sprintf("0x%x : 0x%x -- %f", alpha, beta, prob))
+					}
+				}
+				return nil
+			},
+		},
+		{
+			Name: "attack",
+			Action: func(c *cli.Context) error {
+				d := differential.NewDifferential(heys.NewHeys(&key))
+				m := d.Attack(alpha, beta)
+				arr, err := json.MarshalIndent(*m, "", "	")
+				if err != nil {
+					log.Fatal(err)
+				}
+				return ioutil.WriteFile(fmt.Sprintf("community/key0x%x0x%x.json", alpha, beta), arr, os.ModePerm)
+			},
+		},
+		{
+			Name: "key",
+			Action: func(c *cli.Context) error {
+				fmt.Println(fmt.Sprintf("%x", key))
+				return nil
+			},
+		},
 	}
-	err = ioutil.WriteFile("community/textPairs.json", arr, os.ModePerm)
-	if err != nil {
-		log.Fatal(err)
-	}
 
-	// app := cli.NewApp()
-	// app.Name = "cryptanalysis"
-	// app.Usage = "cryptanalysis pkg for Heys cipher command line client"
-	// app.Description = "linear & differential cryptanalysis for Heys cipher"
-	// app.Version = "0.0.1"
-	// app.Copyright = "2020, mariiatuzovska"
-	// app.Authors = []cli.Author{cli.Author{Name: "Tuzovska Mariia"}}
-	// app.Commands = []cli.Command{
-	// 	{
-	// 		Name:    "key",
-	// 		Aliases: []string{"k", "keygen", "kgen"},
-	// 		Usage:   "Generating or showing key for Heys cipher",
-	// 		Action:  keygen,
-	// 		Flags: []cli.Flag{
-	// 			cliMapFlag["key"],
-	// 			cliMapFlag["gen"],
-	// 			cliMapFlag["show"],
-	// 		},
-	// 	},
-	// }
-
-	// app.Run(os.Args)
+	app.Run(os.Args)
 }
