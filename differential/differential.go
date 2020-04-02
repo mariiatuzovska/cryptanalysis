@@ -10,8 +10,7 @@ import (
 
 type (
 	Differential struct {
-		heys      *heys.Heys
-		encrypted *map[uint16]uint16
+		heys *heys.Heys
 	}
 	differenceResponse struct {
 		alpha  uint16
@@ -26,10 +25,10 @@ type (
 )
 
 var (
-	limValues             = []float64{0.124, 0.0003, 0.000085, 0.000035, 0.0000085}
+	limValues             = []float64{0.124, 0.0003, 0.000085, 0.000035, 0.0000075}
 	probabilityPerOneTime = float64(1) / float64(0x10000)
-	countOfTexts          = 50625
-	limKeyFrequency       = 0
+	countOfTexts          = 30000
+	limKeyFrequency       = 50
 	alphas                = []uint16{
 		0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf,
 		0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70, 0x80, 0x90, 0xa0, 0xb0, 0xc0, 0xd0, 0xe0, 0xf0,
@@ -38,53 +37,58 @@ var (
 )
 
 func NewDifferential(h *heys.Heys) *Differential {
-	return &Differential{h, nil}
+	return &Differential{h}
 }
 
 func (dif *Differential) Attack(alpha, beta uint16) *map[uint16]int {
 
-	textPair := make(map[uint16]uint16)
-	for x := uint32(0x1111); x < 0x10000; x++ {
-		if 0x000f&x != 0 && 0x00f0&x != 0 && 0x0f00&x != 0 && 0xf000&x != 0 {
-			block1, block2 := heys.NewBlock(uint16(x)), heys.NewBlock(uint16(x)^alpha)
-			dif.heys.EncryptBlock(block1)
-			dif.heys.EncryptBlock(block2)
-			textPair[block1.Uint16()] = block2.Uint16()
+	textPair, decrypted := make(map[uint16]uint16), make(map[uint16]uint16)
+	for x := uint32(0x1); x < 0x10000; x++ {
+		block1 := heys.NewBlock(uint16(x))
+		for r := 1; r < 7; r++ {
+			dif.heys.RoundDecryptionBlock(block1, r)
 		}
-		if len(textPair) > (countOfTexts - 1) {
-			goto Routine
+		decrypted[uint16(x)] = block1.Uint16()
+		block2 := heys.NewBlock(block1.Uint16() ^ alpha)
+		for r := 0; r < 6; r++ {
+			dif.heys.RoundEncryptionBlock(block2, r)
+		}
+		decrypted[block2.Uint16()] = block1.Uint16() ^ alpha
+		if 0x000f&x != 0 && 0x00f0&x != 0 && 0x0f00&x != 0 && 0xf000&x != 0 {
+			block := heys.NewBlock(uint16(x))
+			dif.heys.EncryptBlock(block)
+			textPair[uint16(x)] = block.Uint16()
 		}
 	}
-
-Routine:
 
 	numCPU := runtime.NumCPU()
 	runtime.GOMAXPROCS(numCPU)
 	keyChan, responseChan, quite := make(chan uint16, 0x10000), make(chan keyResponse, 0x10000), make(chan bool, 0x10000)
 	result := make(map[uint16]int)
 
-	fmt.Println(fmt.Sprintf("Attack with differences 0x%x : 0x%x", alpha, beta))
+	fmt.Println(fmt.Sprintf("Attack for input differences 0x%x : 0x%x", alpha, beta))
 
 	for i := 0; i < numCPU; i++ {
 
-		go func(k chan uint16, resp chan keyResponse, txtPair *map[uint16]uint16, b uint16) {
-			textPair := *txtPair
+		go func(k chan uint16, resp chan keyResponse, txtPair, dec *map[uint16]uint16, b uint16) {
+			textPair, decrypted := *txtPair, *dec
 			for {
 				key, open := <-k
 				if open && key != 0 {
-					c := 0
+					i, c := 0, 0
 					for c1, c2 := range textPair {
-						block1, block2 := heys.NewBlock(c1^key), heys.NewBlock(c2^key)
-						block1.Unpermuntate()
-						block2.Unpermuntate()
-						if block1.Uint16() == block2.Uint16()^b {
+						realDiff := decrypted[c1^uint16(key)] ^ decrypted[c2^uint16(key)]
+						if realDiff == b {
+							// 	fmt.Println(fmt.Sprintf("0x%x : 0x%x -- 0x%x : 0x%x  -- 0x%x : 0x%x -- difference %x",
+							// 		c1, c2, c1^uint16(key), c2^uint16(key), decrypted[c1^uint16(key)], decrypted[c2^uint16(key)], realDiff))
 							c++
 						}
-						// c1, c2 = c1^key, c2^key
-						// if c1 == c2^b {
-						// 	c++
-						// }
+						i++
+						if i == countOfTexts {
+							goto Push
+						}
 					}
+				Push:
 					resp <- keyResponse{
 						key:   key,
 						count: c,
@@ -93,7 +97,7 @@ Routine:
 					break
 				}
 			}
-		}(keyChan, responseChan, &textPair, beta)
+		}(keyChan, responseChan, &textPair, &decrypted, beta)
 	}
 
 	for k := uint32(1); k < 0x10000; k++ {
@@ -102,6 +106,7 @@ Routine:
 
 	counter := 0
 	for {
+
 		select {
 
 		case response := <-responseChan:
@@ -131,9 +136,7 @@ func (dif *Differential) Search() *DPTable {
 	encrypted := make(map[uint16]uint16)
 	for i := 0; i < 0x10000; i++ {
 		block := heys.NewBlock(uint16(i))
-		for r := 0; r < 6; r++ {
-			dif.heys.RoundEncryptionBlock(block, r)
-		}
+		dif.heys.EncryptBlock(block)
 		encrypted[uint16(i)] = block.Uint16()
 	}
 
@@ -143,14 +146,13 @@ func (dif *Differential) Search() *DPTable {
 	result := make(DPTable)
 
 	for i := 0; i < numCPU; i++ {
-		go func(a chan uint16, response chan differenceResponse) { // sum_x [b = f(x ^ alpha) ^ f(x)]
-			encrypted := *dif.encrypted
+		go func(a chan uint16, response chan differenceResponse, enc map[uint16]uint16) { // sum_x [b = f(x ^ alpha) ^ f(x)]s
 			for {
 				alpha, open := <-a
 				if open && alpha != 0 {
 					aTable := make(Branch)
 					for x := 0; x < 0x10000; x++ {
-						b := encrypted[uint16(x)] ^ encrypted[uint16(x)^alpha] ^ 0xffff
+						b := enc[uint16(x)] ^ enc[uint16(x)^alpha] ^ 0xffff
 						if _, exist := aTable[b]; !exist {
 							aTable[b] = 0
 						}
@@ -164,7 +166,7 @@ func (dif *Differential) Search() *DPTable {
 					break
 				}
 			}
-		}(alphasChan, responseChan)
+		}(alphasChan, responseChan, encrypted)
 	}
 
 	for _, alpha := range alphas {
@@ -181,10 +183,10 @@ func (dif *Differential) Search() *DPTable {
 				response := <-responseChan
 				if aProbability, exist := gamma[round-1][response.alpha]; exist {
 					for b, bProbability := range response.branch {
-						if prob, exist := gamma[round][b]; !exist {
+						if _, exist := gamma[round][b]; !exist {
 							gamma[round][b] = bProbability * aProbability
 						} else {
-							gamma[round][b] = prob + (bProbability * aProbability)
+							gamma[round][b] = gamma[round][b] + (bProbability * aProbability)
 						}
 					}
 				} else {
