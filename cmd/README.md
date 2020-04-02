@@ -1,3 +1,3 @@
 # cmd package
 
-*command-line client for differential & linear cryptanalysis of Heys cipher*
+*command-line client for differential cryptanalysis of Heys cipher*
