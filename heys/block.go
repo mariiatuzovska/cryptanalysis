@@ -40,14 +40,3 @@ func (block *Block) Xor(k uint16) {
 func (block *Block) Uint16() uint16 {
 	return uint16(*block)
 }
-
-// func (block *Block) SetBytes(bytes []byte) {
-// 	*block = Block(uint16(bytes[0]) + (uint16(bytes[1]) << 8))
-// }
-
-// func (block *Block) GetBytes() []byte {
-// 	return []byte{
-// 		byte(uint16(*block) & 0xff),
-// 		byte((uint16(*block) >> 8) & 0xff),
-// 	}
-// }

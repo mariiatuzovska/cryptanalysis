@@ -42,3 +42,40 @@ func (heys *Heys) RoundDecryptionBlock(block *Block, round int) {
 	block.Unpermuntate()
 	block.Xor(heys.key[6-round])
 }
+
+func FormData(bytes []byte) []Block {
+	blocks := make([]Block, 0)
+	if len(bytes)&2 != 0 {
+		bytes = append(bytes, byte(0))
+	}
+	for i := 0; i < len(bytes); i += 2 {
+		blocks = append(blocks, Block(uint16(bytes[i])+(uint16(bytes[i+1])<<8)))
+	}
+	return blocks
+}
+
+func DescribeData(blocks *[]Block) []byte {
+	b := *blocks
+	bytes := make([]byte, 0)
+	if len(bytes)&2 != 0 {
+		bytes = append(bytes, byte(0))
+	}
+	for i := 0; i < len(b); i++ {
+		bytes = append(bytes, []byte{
+			byte(uint16(b[i]) & 0xff),
+			byte((uint16(b[i]) >> 8) & 0xff),
+		}...)
+	}
+	return bytes
+}
+
+// func (block *Block) SetBytes(bytes []byte) {
+// 	*block = Block(uint16(bytes[0]) + (uint16(bytes[1]) << 8))
+// }
+
+// func (block *Block) GetBytes() []byte {
+// 	return []byte{
+// 		byte(uint16(*block) & 0xff),
+// 		byte((uint16(*block) >> 8) & 0xff),
+// 	}
+// }

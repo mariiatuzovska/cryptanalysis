@@ -203,6 +203,7 @@ func (dif *Differential) Search() *DPTable {
 			for a, aProbability := range gamma[round] {
 				if aProbability < limValues[round-1] || a == 0 {
 					delete(gamma[round], a)
+					fmt.Println(fmt.Sprintf("alpha 0x%x beta 0x%x %f", alpha, a, aProbability))
 				} else if round < 5 {
 					alphasChan <- a
 					counter++

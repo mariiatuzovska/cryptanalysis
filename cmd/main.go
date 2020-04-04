@@ -12,7 +12,8 @@ import (
 	"github.com/urfave/cli"
 )
 
-var key = []uint16{0x7a2b, 0xd01e, 0x1cc9, 0x467f, 0x0553, 0xc131, 0x31cc}
+var key = []uint16{0xa060, 0x8b55, 0x9c2f, 0x1c7f, 0x7e69, 0xc260, 0xb262}
+var bKey = []byte{0xa0, 0x60, 0x8b, 0x55, 0x9c, 0x2f, 0x1c, 0x7f, 0x7e, 0x69, 0xc2, 0x60, 0xb2, 0x62}
 
 var (
 	alpha uint16 = 0xa
@@ -23,12 +24,77 @@ func main() {
 
 	app := cli.NewApp()
 	app.Name = "differential"
-	app.Usage = "differential cryptanalysis for Heys cipher command line client"
-	app.Description = "differential cryptanalysis for Heys cipher"
+	app.Usage = "differential cryptanalysis of Heys cipher command line client"
+	app.Description = "differential cryptanalysis ofa Heys cipher"
 	app.Version = "0.0.1"
 	app.Copyright = "2020, mariiatuzovska"
 	app.Authors = []cli.Author{cli.Author{Name: "Tuzovska Mariia"}}
 	app.Commands = []cli.Command{
+		{
+			Name:  "e",
+			Usage: "Encrypt file using Heys cipher",
+			Action: func(c *cli.Context) error {
+				messageContent, err := ioutil.ReadFile("community/plain.txt")
+				if err != nil {
+					log.Fatal(err)
+				}
+				blocks := heys.FormData(messageContent)
+				h := heys.NewHeys(&key)
+				for i := 0; i < len(blocks); i++ {
+					h.EncryptBlock(&blocks[i])
+				}
+				ct := heys.DescribeData(&blocks)
+				file, err := os.Create("community/cipher.txt")
+				if err != nil {
+					log.Fatal(err)
+				}
+				_, err = file.WriteString(string(ct))
+				if err != nil {
+					log.Fatal(err)
+				}
+				return file.Close()
+			},
+		},
+		{
+			Name:  "d",
+			Usage: "Decrypt file using Heys cipher",
+			Action: func(c *cli.Context) error {
+				cipherContent, err := ioutil.ReadFile("community/cipher.txt")
+				if err != nil {
+					log.Fatal(err)
+				}
+				blocks := heys.FormData(cipherContent)
+				h := heys.NewHeys(&key)
+				for i := 0; i < len(blocks); i++ {
+					h.DecryptBlock(&blocks[i])
+				}
+				ct := heys.DescribeData(&blocks)
+				file, err := os.Create("community/plain.txt")
+				if err != nil {
+					log.Fatal(err)
+				}
+				_, err = file.WriteString(string(ct))
+				if err != nil {
+					log.Fatal(err)
+				}
+				return file.Close()
+			},
+		},
+		{
+			Name:  "key-save",
+			Usage: "save key to file",
+			Action: func(c *cli.Context) error {
+				file, err := os.Create("community/key.txt")
+				if err != nil {
+					return err
+				}
+				_, err = file.WriteString(string(bKey))
+				if err != nil {
+					return err
+				}
+				return file.Close()
+			},
+		},
 		{
 			Name:  "diff-search",
 			Usage: "search for defferentials",
