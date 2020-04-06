@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/mariiatuzovska/cryptanalysis/differential"
+	"github.com/mariiatuzovska/cryptanalysis/heys"
 	"github.com/urfave/cli"
 )
 
@@ -21,14 +22,36 @@ import (
 // 0x400 : 0x1111 -- 0.001446
 
 var (
-	alpha    = 0xc00
-	beta     = 0x1111
-	keyFiles = []string{
+	alpha       = 0xc00
+	beta        = 0x1111
+	limKeyCount = 80
+	keyFiles    = []string{
+		"community/keys_attack_0xc_0x2222.json",
+		"community/keys_attack_0x100_0x1111.json",
+		"community/keys_attack_0x300_0x1111.json",
+		"community/keys_attack_0x400_0x1111.json",
+		"community/keys_attack_0x400_0x8888.json",
+		"community/keys_attack_0x900_0x1111.json",
+		"community/keys_attack_0xa00_0x1111.json",
+		"community/keys_attack_0xa00_0x8888.json",
+		"community/keys_attack_0xb00_0x1111.json",
 		"community/keys_attack_0xc00_0x1111.json",
+		"community/keys_attack_0xc00_0x2222.json",
+		"community/keys_attack_0xc00_0x8888.json",
+		"community/keys_attack_0xd00_0x1111.json",
+		"community/keys_attack_0xf00_0x1111.json",
+		"community/keys_attack_0xf00_0x8888.json",
 	}
 )
 
 func main() {
+
+	p := make([]int, 0x10000)
+	for i := 0; i < 0x10000; i++ {
+		p[i] = i
+	}
+	c := heys.ConvertBlocksToData(p)
+	ioutil.WriteFile("community/plain.txt", c, os.ModePerm)
 
 	app := cli.NewApp()
 	app.Name = "differential"
@@ -38,6 +61,42 @@ func main() {
 	app.Copyright = "2020, mariiatuzovska"
 	app.Authors = []cli.Author{cli.Author{Name: "Tuzovska Mariia"}}
 	app.Commands = []cli.Command{
+		{
+			Name:  "e",
+			Usage: "encrypt",
+			Action: func(c *cli.Context) error {
+				data, err := ioutil.ReadFile("community/plain.txt")
+				if err != nil {
+					return err
+				}
+				blocks := heys.ConvertDataToBlocks(data)
+				for i := 0; i < len(blocks); i++ {
+					blocks[i] = heys.Encrypt(blocks[i])
+				}
+				data = heys.ConvertBlocksToData(blocks)
+				key := heys.ConvertBlocksToData(heys.Defaultkey)
+				ioutil.WriteFile("community/key.txt", key, os.ModePerm)
+				return ioutil.WriteFile("community/cipher.txt", data, os.ModePerm)
+			},
+		},
+		{
+			Name:  "d",
+			Usage: "decrypt",
+			Action: func(c *cli.Context) error {
+				data, err := ioutil.ReadFile("community/ct2.txt")
+				if err != nil {
+					return err
+				}
+				blocks := heys.ConvertDataToBlocks(data)
+				for i := 0; i < len(blocks); i++ {
+					blocks[i] = heys.Decrypt(blocks[i])
+				}
+				data = heys.ConvertBlocksToData(blocks)
+				key := heys.ConvertBlocksToData(heys.Defaultkey)
+				ioutil.WriteFile("community/key.txt", key, os.ModePerm)
+				return ioutil.WriteFile("community/pt2.txt", data, os.ModePerm)
+			},
+		},
 		{
 			Name:  "diff-search",
 			Usage: "search for defferentials",
@@ -66,9 +125,9 @@ func main() {
 				}
 				for alpha, barnch := range dPTable {
 					for beta, prob := range barnch {
-						if 0x000f&beta != 0 && 0x00f0&beta != 0 && 0x0f00&beta != 0 && 0xf000&beta != 0 {
-							fmt.Println(fmt.Sprintf("0x%x : 0x%x -- %f", alpha, beta, prob))
-						}
+						// if 0x000f&beta != 0 && 0x00f0&beta != 0 && 0x0f00&beta != 0 && 0xf000&beta != 0 {
+						fmt.Println(fmt.Sprintf("0x%x : 0x%x -- %f", alpha, beta, prob))
+						// }
 					}
 				}
 				return nil
@@ -79,13 +138,44 @@ func main() {
 			Usage: "finds keys for differentials alpha and beta",
 			Action: func(c *cli.Context) error {
 				m := differential.Attack(alpha, beta)
-				// fmt.Println(fmt.Sprintf("Found key 0x%x", key))
-				// return nil
 				arr, err := json.MarshalIndent(m, "", "	")
 				if err != nil {
 					log.Fatal(err)
 				}
 				return ioutil.WriteFile(fmt.Sprintf("community/keys_attack_0x%x_0x%x.json", alpha, beta), arr, os.ModePerm)
+			},
+		},
+		{
+			Name:  "diff-attack-all",
+			Usage: "finds keys for all differentials alpha and beta in community/differentials.json",
+			Action: func(c *cli.Context) error {
+				dPTable := make(map[int]map[int]float64)
+				file, err := ioutil.ReadFile("community/differences.json")
+				if err != nil {
+					return err
+				}
+				err = json.Unmarshal(file, &dPTable)
+				if err != nil {
+					return err
+				}
+				for a, bMap := range dPTable {
+					for b := range bMap {
+						if 0x000f&b != 0 && 0x00f0&b != 0 && 0x0f00&b != 0 && 0xf000&b != 0 {
+							pathToFile := fmt.Sprintf("community/keys_attack_0x%x_0x%x.json", a, b)
+							fmt.Println(pathToFile)
+							m := differential.Attack(a, b)
+							arr, err := json.MarshalIndent(m, "", "	")
+							if err != nil {
+								log.Fatal(err)
+							}
+							err = ioutil.WriteFile(pathToFile, arr, os.ModePerm)
+							if err != nil {
+								log.Fatal(err)
+							}
+						}
+					}
+				}
+				return nil
 			},
 		},
 		{
@@ -113,7 +203,9 @@ func main() {
 					log.Fatal(err)
 				}
 				for Key, count := range keys {
-					fmt.Println(fmt.Sprintf("%x - %d", Key, count))
+					if count > limKeyCount {
+						fmt.Println(fmt.Sprintf("%x - %d", Key, count))
+					}
 				}
 				return nil
 			},
@@ -133,9 +225,6 @@ func main() {
 					if err != nil {
 						log.Fatal(err)
 					}
-					if _, exist := k[0xb262]; exist {
-						fmt.Println(fPath)
-					}
 					for key, count := range k {
 						if _, exist := keys[key]; exist {
 							// fmt.Println(fmt.Sprintf("existed 0x%x = %d + %d", key, keys[key], count))
@@ -147,7 +236,7 @@ func main() {
 					}
 				}
 				for Key, count := range keys {
-					if count > 25 {
+					if count > limKeyCount {
 						fmt.Println(fmt.Sprintf("%x - %d", Key, count))
 					}
 				}
