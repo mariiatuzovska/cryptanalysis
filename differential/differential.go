@@ -24,9 +24,9 @@ type (
 )
 
 var (
-	limValues     = []float64{0.1, 0.0001, 0.0001, 0.00005, 0.0008}
+	limValues     = []float64{0.1, 0.0001, 0.0001, 0.00005, 0.001}
 	limConcurency = 10
-	countOfText   = 20000
+	countOfText   = 16000
 	alphas        = []int{
 		0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf,
 		0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70, 0x80, 0x90, 0xa0, 0xb0, 0xc0, 0xd0, 0xe0, 0xf0,
@@ -69,7 +69,7 @@ func Attack(alpha int, beta int) map[int]int {
 
 	result := make(map[int]int)
 
-	fmt.Println(fmt.Sprintf("Attack for input differences 0x%x : 0x%x", alpha, beta))
+	fmt.Println(fmt.Sprintf("Attack for input differences 0x%04x : 0x%04x", alpha, beta))
 
 	for key := 0; key < 0x10000; key++ {
 		go func(resp chan keyResponse, txts map[int]bool, enc, dec []int, probablyKey, a, b int) {
@@ -94,7 +94,7 @@ func Attack(alpha int, beta int) map[int]int {
 		mutex.Lock()
 		if response.concurrency > limConcurency {
 			result[response.key] = response.concurrency
-			// fmt.Println(fmt.Sprintf("key 0x%x concurency %d", key, maxConcurency))
+			// fmt.Println(fmt.Sprintf("key 0x%04x concurency %d", key, maxConcurency))
 		}
 		mutex.Unlock()
 	}
@@ -168,7 +168,7 @@ func Search() *map[int]map[int]float64 {
 				probability: res,
 			}
 
-			fmt.Println(fmt.Sprintf("alpha 0x%x has %d betas", a, len(res)))
+			fmt.Println(fmt.Sprintf("alpha 0x%04x has %d betas", a, len(res)))
 
 		}(alpha, responseChan, encrypted)
 

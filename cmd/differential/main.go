@@ -6,41 +6,26 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"sort"
 
 	"github.com/mariiatuzovska/cryptanalysis/differential"
 	"github.com/mariiatuzovska/cryptanalysis/heys"
 	"github.com/urfave/cli"
 )
 
-// 0xd00 : 0x1111 -- 0.001114
-// 0xc00 : 0x1111 -- 0.001563
-// 0xc00 : 0x8888 -- 0.001145
-// 0xf00 : 0x1111 -- 0.001237
-// 0xa00 : 0x1111 -- 0.001083
-// 0xb00 : 0x1111 -- 0.001043
-// 0x400 : 0x8888 -- 0.001120
-// 0x400 : 0x1111 -- 0.001446
-
 var (
 	alpha       = 0xc00
 	beta        = 0x1111
-	limKeyCount = 80
+	limKeyCount = 5
 	keyFiles    = []string{
-		"community/keys_attack_0xc_0x2222.json",
-		"community/keys_attack_0x100_0x1111.json",
-		"community/keys_attack_0x300_0x1111.json",
-		"community/keys_attack_0x400_0x1111.json",
-		"community/keys_attack_0x400_0x8888.json",
-		"community/keys_attack_0x900_0x1111.json",
-		"community/keys_attack_0xa00_0x1111.json",
-		"community/keys_attack_0xa00_0x8888.json",
-		"community/keys_attack_0xb00_0x1111.json",
-		"community/keys_attack_0xc00_0x1111.json",
-		"community/keys_attack_0xc00_0x2222.json",
-		"community/keys_attack_0xc00_0x8888.json",
-		"community/keys_attack_0xd00_0x1111.json",
-		"community/keys_attack_0xf00_0x1111.json",
-		"community/keys_attack_0xf00_0x8888.json",
+		"community/keys_attack_0x0c00_0x8888.json",
+		"community/keys_attack_0x0c00_0x1111.json",
+		"community/keys_attack_0x0400_0x1111.json",
+		"community/keys_attack_0x0400_0x8888.json",
+		"community/keys_attack_0x0a00_0x1111.json",
+		"community/keys_attack_0x0b00_0x1111.json",
+		"community/keys_attack_0x0f00_0x1111.json",
+		"community/keys_attack_0x0d00_0x1111.json",
 	}
 )
 
@@ -125,9 +110,9 @@ func main() {
 				}
 				for alpha, barnch := range dPTable {
 					for beta, prob := range barnch {
-						// if 0x000f&beta != 0 && 0x00f0&beta != 0 && 0x0f00&beta != 0 && 0xf000&beta != 0 {
-						fmt.Println(fmt.Sprintf("0x%x : 0x%x -- %f", alpha, beta, prob))
-						// }
+						if 0x000f&beta != 0 && 0x00f0&beta != 0 && 0x0f00&beta != 0 && 0xf000&beta != 0 {
+							fmt.Println(fmt.Sprintf("0x%04x : 0x%04x -- %f", alpha, beta, prob))
+						}
 					}
 				}
 				return nil
@@ -142,7 +127,7 @@ func main() {
 				if err != nil {
 					log.Fatal(err)
 				}
-				return ioutil.WriteFile(fmt.Sprintf("community/keys_attack_0x%x_0x%x.json", alpha, beta), arr, os.ModePerm)
+				return ioutil.WriteFile(fmt.Sprintf("community/keys_attack_0x%04x_0x%04x.json", alpha, beta), arr, os.ModePerm)
 			},
 		},
 		{
@@ -161,7 +146,7 @@ func main() {
 				for a, bMap := range dPTable {
 					for b := range bMap {
 						if 0x000f&b != 0 && 0x00f0&b != 0 && 0x0f00&b != 0 && 0xf000&b != 0 {
-							pathToFile := fmt.Sprintf("community/keys_attack_0x%x_0x%x.json", a, b)
+							pathToFile := fmt.Sprintf("community/keys_attack_0x%04x_0x%04x.json", a, b)
 							fmt.Println(pathToFile)
 							m := differential.Attack(a, b)
 							arr, err := json.MarshalIndent(m, "", "	")
@@ -179,6 +164,92 @@ func main() {
 			},
 		},
 		{
+			Name:  "diff-report",
+			Usage: "shows beautiful report about this fucking one",
+			Action: func(c *cli.Context) error {
+				DPTMap := make(map[int]map[int]float64)
+				file, err := ioutil.ReadFile("community/differences.json")
+				if err != nil {
+					return err
+				}
+				err = json.Unmarshal(file, &DPTMap)
+				if err != nil {
+					return err
+				}
+				fmt.Println("\nFound differences:\n")
+				sortKeysDPTable := make([]int, 0)
+				sortedDiffProbs := make([]float64, 0)
+				sortedDiffMap := make(map[float64]int)
+				for key := range DPTMap {
+					if len(DPTMap[key]) > 0 {
+						sortKeysDPTable = append(sortKeysDPTable, key)
+					}
+				}
+				sort.Ints(sortKeysDPTable)
+				for _, a := range sortKeysDPTable {
+					differences := DPTMap[a]
+					sortedDiffProbs = make([]float64, 0)
+					sortedDiffMap = make(map[float64]int)
+					for b, prob := range differences {
+						if 0x000f&b != 0 && 0x00f0&b != 0 && 0x0f00&b != 0 && 0xf000&b != 0 {
+							sortedDiffProbs = append(sortedDiffProbs, prob)
+							sortedDiffMap[prob] = b
+						}
+					}
+					sort.Float64s(sortedDiffProbs)
+					for _, prob := range sortedDiffProbs {
+						fmt.Println(fmt.Sprintf("0x%04x -- 0x%04x -- %f", alpha, sortedDiffMap[prob], prob))
+					}
+
+				}
+				// keys
+				keys := make(map[uint16]int)
+				for _, fPath := range keyFiles {
+					fmt.Println("\nRead file:", fPath)
+					k := make(map[uint16]int)
+					file, err := ioutil.ReadFile(fPath)
+					if err != nil {
+						log.Fatal(err)
+					}
+					err = json.Unmarshal(file, &k)
+					if err != nil {
+						log.Fatal(err)
+					}
+					sorted := []int{}
+					sortedMap := make(map[int]uint16)
+					for key, count := range k {
+						if _, exist := keys[key]; exist {
+							keys[key] = keys[key] + count
+
+						} else {
+							keys[key] = count
+						}
+						sorted = append(sorted, count)
+						sortedMap[count] = key
+					}
+					sort.Ints(sorted)
+					for i := len(sorted) - 1; i > -1; i-- {
+						fmt.Println(fmt.Sprintf("%04x - %d", sortedMap[sorted[i]], sorted[i]))
+					}
+				}
+				fmt.Println(fmt.Sprintf("\n\nSUM for all keys\n"))
+				sorted := []int{}
+				sortedMap := make(map[int]uint16)
+				for Key, count := range keys {
+					if count > limKeyCount {
+						sorted = append(sorted, count)
+						sortedMap[count] = Key
+					}
+				}
+				sort.Ints(sorted)
+				for i := len(sorted) - 1; i > -1; i-- {
+					fmt.Println(fmt.Sprintf("%04x - %d", sortedMap[sorted[i]], sorted[i]))
+				}
+
+				return nil
+			},
+		},
+		{
 			Name:  "key-found",
 			Usage: "shows keys that has been found for some aplpha and beta",
 			Flags: []cli.Flag{
@@ -192,7 +263,7 @@ func main() {
 				if c.String("file") != "" {
 					fileName = c.String("file")
 				} else {
-					fileName = fmt.Sprintf("community/keys_attack_0x%x_0x%x.json", alpha, beta)
+					fileName = fmt.Sprintf("community/keys_attack_0x%04x_0x%04x.json", alpha, beta)
 				}
 				file, err := ioutil.ReadFile(fileName)
 				if err != nil {
@@ -204,9 +275,10 @@ func main() {
 				}
 				for Key, count := range keys {
 					if count > limKeyCount {
-						fmt.Println(fmt.Sprintf("%x - %d", Key, count))
+						fmt.Println(fmt.Sprintf("0x%04x - %d", Key, count))
 					}
 				}
+
 				return nil
 			},
 		},
@@ -227,7 +299,7 @@ func main() {
 					}
 					for key, count := range k {
 						if _, exist := keys[key]; exist {
-							// fmt.Println(fmt.Sprintf("existed 0x%x = %d + %d", key, keys[key], count))
+							// fmt.Println(fmt.Sprintf("existed 0x%04x = %d + %d", key, keys[key], count))
 							keys[key] = keys[key] + count
 
 						} else {
@@ -235,10 +307,17 @@ func main() {
 						}
 					}
 				}
+				sorted := []int{}
+				sortedMap := make(map[int]uint16)
 				for Key, count := range keys {
 					if count > limKeyCount {
-						fmt.Println(fmt.Sprintf("%x - %d", Key, count))
+						sorted = append(sorted, count)
+						sortedMap[count] = Key
 					}
+				}
+				sort.Ints(sorted)
+				for i := len(sorted) - 1; i > -1; i-- {
+					fmt.Println(fmt.Sprintf("%04x - %d", sortedMap[sorted[i]], sorted[i]))
 				}
 				return nil
 			},
