@@ -1,3 +1,4 @@
-cmd/cmd
+linear/cmd/cmd
+differential/cmd/cmd
 
 .DS_Store
